@@ -110,7 +110,7 @@ public class VaedoInstance : MonoBehaviourSingleton<VaedoInstance>, IInstancesRe
         int index = -1;
         for (int i = 0; i < process.Modules.Count; i++)
         {
-            Debug.Log(process.Modules[i].ModuleName + " - " + process.Modules[i].BaseAddress);
+            Debug.LogError(process.Modules[i].ModuleName + " - " + process.Modules[i].BaseAddress);
             if( process.Modules[i].ModuleName.Equals(ProcessModuleName, StringComparison.OrdinalIgnoreCase)) 
             {
                 index = i;
@@ -128,7 +128,7 @@ public class VaedoInstance : MonoBehaviourSingleton<VaedoInstance>, IInstancesRe
             return;
 
         // 2. Add first offset to get the base pointer
-        IntPtr address = IntPtr.Add(baseAddress, 0x009FA490);
+        IntPtr address = IntPtr.Add(baseAddress, InitialOffset.ToInt32());
 
         // 3. Open process for reading
         IntPtr processHandle = OpenProcess(PROCESS_WM_READ, false, process.Id);
