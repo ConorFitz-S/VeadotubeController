@@ -1,4 +1,4 @@
-# Veadtube controller!
+# Veadotube mini controller!
 This is a unity app, which reads a value from a memory address of a given process, and controls Veadotube Mini states with it!
 
 ![image](https://github.com/user-attachments/assets/37849dec-9a47-4344-907d-91eb58613f0b)
