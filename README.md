@@ -7,7 +7,7 @@ This is a unity app, which reads a value from a memory address of a given proces
 - Have veadotube mini open before launching this app
 - Click "Connect Process" only once the desired process is running
 
-### GETTING STARTED:
+## GETTING STARTED:
 - Launch the app after starting up veadotube mini.
 - Note the state names in your veadotube mini instance.
 - Click on the "+" button to add a handle.
@@ -32,3 +32,23 @@ Click the "Preview mode" toggle to activate preview mode. This creates a Preview
 
 This lets you test the functionality of the app before hooking it into a game.
 Keep in mind, only the preview value is considered with preview mode enabled. The current value being read from the game will not be assessed while preview mode is enabled.
+
+## SETTING YOUR DESIRED GAME + VALUE
+In the VeadotubeController_Data folder, you'll find a file named settings.txt
+
+![image](https://github.com/user-attachments/assets/066704c2-83f6-4cf7-90a7-4a8840825251)
+
+The parser for this is fairly simple/barebones so please dont mess with the structure of this too much!
+
+In order to get the memory address, you need to find a static pointer using a program such as CheatEngine. There are tutorials on how to do this online so I won't go through it here.
+Usually the address in programs like CheatEngine comes in a format like this:
+module.dll+0x6FB4908
+- The [Module name] is the dll filename, in this case module.dll
+- The [Initial Offset] is the address after the + here, in this case it will be 0x6FB4908
+
+with a set of pointers, such as:
+
+- 0xF9, 0x1CC, 0x89, etc.
+however many there are, just place them under the [Offsets] line, separated by commas.
+
+[Process name] should be the name of the executable being read from. 
