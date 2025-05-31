@@ -20,6 +20,9 @@ public class SliderBody : MonoBehaviourSingleton<SliderBody>
     
     public TMP_InputField minValueInput;
     public TMP_InputField maxValueInput;
+
+    private float lastWidth;
+    
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
@@ -29,7 +32,16 @@ public class SliderBody : MonoBehaviourSingleton<SliderBody>
     // Update is called once per frame
     void Update()
     {
+
+        if (Screen.width != lastWidth)
+        {
+            for(int i = 0; i < handles.Count; i++)
+            {
+                handles[i].SetPosition(handles[i].StateValue);
+            }
+        }
         
+        lastWidth = Screen.width;
     }
     
     public int GetCurrentIndex(int value)
