@@ -14,7 +14,7 @@ This is a unity app, which reads a value from a memory address of a given proces
 
 ![image](https://github.com/user-attachments/assets/dcccf3ec-a1a0-49c1-abdf-429dd5c4b1ad)
 
-- This is a handle. The number on the top is the Handle Value.
+- This is a handle. The number on the top is the Handle Value. You can click and drag the handle across the slider bar to change its value.
 - If the Current Value is greater than the Handle Value, the app will set the veadotube state to whatever is in the inputfield.
 - In the below example, if the current value is greater than 60 but less than 80, it will set the state to "deer". However if the current value is greater than 80, it will set the state to "frog"
 
