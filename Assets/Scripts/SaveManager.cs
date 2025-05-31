@@ -36,6 +36,7 @@ public class SaveManager : MonoBehaviour
                 newHandle.StateName = handleStateNames[i];
                 newHandle.StateValue = int.Parse(handleStateValues[i]);
                 newHandle.ValueText.text = newHandle.StateValue.ToString();
+                newHandle.ShowName(newHandle.StateName);
                 SliderBody.Instance.handles.Add(newHandle);
             }
 

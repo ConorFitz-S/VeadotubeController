@@ -91,7 +91,17 @@ public class SliderBody : MonoBehaviourSingleton<SliderBody>
         maxValueInput.SetTextWithoutNotify(value.ToString());
     }
 
+    public void DeleteHandle(SliderHandle handle)
+    {
+        if (handles.Contains(handle))
+        {
+            handles.Remove(handle);
+            Destroy(handle.gameObject);
 
+            SortHandlesByValue();
+            VaedoInstance.Instance.AssessState(true);
+        }
+    }
 
 
 }

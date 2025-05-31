@@ -6,6 +6,7 @@ public class SliderHandle : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
 {
     //public Transform HandleTransform;
     public TextMeshProUGUI ValueText;
+    public TMP_InputField NameInput;
     public int StateValue;
     
     public string StateName;
@@ -52,6 +53,13 @@ public class SliderHandle : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
         VaedoInstance.Instance.AssessState(true);
     }
 
+    public void ShowName(string value)
+    {
+        NameInput.text = value;
+        StateName = value;
+        
+    }
+
     public int GetValue()
     {
         //Get value from the slider handle position based on slider body min and max values
@@ -75,5 +83,10 @@ public class SliderHandle : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
         // Update the value text
         ValueText.text = value.ToString();
         StateValue = Mathf.RoundToInt(value);
+    }
+
+    public void Delete()
+    {
+        SliderBody.Instance.DeleteHandle(this);
     }
 }
