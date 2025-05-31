@@ -46,7 +46,7 @@ module.dll+0x6FB4908
 - The [Module name] is the dll filename, in this case module.dll
 - The [Initial Offset] is the address after the + here, in this case it will be 0x6FB4908
 
-with a set of pointers, such as:
+with a set of offsets, such as:
 
 - 0xF9, 0x1CC, 0x89, etc.
 however many there are, just place them under the [Offsets] line, separated by commas.
