@@ -8,7 +8,7 @@ public class SliderHandle : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
     public TextMeshProUGUI ValueText;
     public int StateValue;
     
-    
+    public string StateName;
 
     public void OnBeginDrag(PointerEventData eventData)
     {
@@ -30,18 +30,26 @@ public class SliderHandle : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
             transform.position.z);
         
         transform.position = clampedPosition;
-        ValueText.text = GetValue().ToString();
+        int value = GetValue();
+        ValueText.text = value.ToString();
+        StateValue = value;
     }
 
     public void OnEndDrag(PointerEventData eventData)
     {
+        SliderBody.Instance.SortHandlesByValue();
+        VaedoInstance.Instance.AssessState(true);
+        Debug.Log("Current index: " + SliderBody.Instance.GetCurrentIndex(StateValue));
+        Debug.Log("VeadoInstance Index: " + VaedoInstance.Instance.currentStateIndex);
+        
         // Logic for when dragging ends
         //Debug.Log("Dragging ended");
     }
 
-    public void SetValue(string value)
+    public void SetName(string value)
     {
-        StateValue = int.Parse(value);
+        StateName = value;
+        VaedoInstance.Instance.AssessState(true);
     }
 
     public int GetValue()
@@ -53,5 +61,19 @@ public class SliderHandle : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
         float normalizedValue = (transform.position.x - SliderBody.Instance.GetMinPosition().x) / (SliderBody.Instance.GetMaxPosition().x - SliderBody.Instance.GetMinPosition().x);
         return Mathf.RoundToInt(minValue + normalizedValue * range);
         
+    }
+    
+    public void SetPosition(float value)
+    {
+        // Set the position of the handle based on the value
+        float minX = SliderBody.Instance.GetMinPosition().x;
+        float maxX = SliderBody.Instance.GetMaxPosition().x;
+        float normalizedValue = (value - SliderBody.Instance.minValue) / (SliderBody.Instance.maxValue - SliderBody.Instance.minValue);
+        float newX = Mathf.Lerp(minX, maxX, normalizedValue);
+        transform.position = new Vector3(newX, transform.position.y, transform.position.z);
+        
+        // Update the value text
+        ValueText.text = value.ToString();
+        StateValue = Mathf.RoundToInt(value);
     }
 }

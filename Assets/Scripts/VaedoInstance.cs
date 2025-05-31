@@ -1,6 +1,7 @@
 using UnityEngine;
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -10,7 +11,7 @@ using UnityEngine.InputSystem;
 using VeadoTube.BleatCan;
 using Debug = UnityEngine.Debug;
 
-public class VaedoInstance : MonoBehaviour, IInstancesReceiver, IConnectionReceiver
+public class VaedoInstance : MonoBehaviourSingleton<VaedoInstance>, IInstancesReceiver, IConnectionReceiver
 {
     const int PROCESS_WM_READ = 0x0010;
     
@@ -26,21 +27,208 @@ public class VaedoInstance : MonoBehaviour, IInstancesReceiver, IConnectionRecei
 
     private bool checkingClient = false;
     public TextMeshProUGUI HPText;
+    public TextMeshProUGUI processText;
+    public TextMeshProUGUI veadoText;
+    public int currentHP = 0;
+    Process process;
+
+    public string ProcessName;
+    public string ProcessModuleName;
+    
+    public IntPtr InitialOffset;
+    public List<int> offsets = new List<int>();
+    public IntPtr FinalAddress;
+    public IntPtr ProcessHandle;
+    public SliderHandle previewHandle;
+
+    int lastStateIndex = 0;
+    public int currentStateIndex = 0;
+
+    public bool isPreview;
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
         Application.targetFrameRate = 60;
+        MakeNewConnection();
+        LoadProcessFromFile();
+    }
+    
+    void LoadProcessFromFile()
+    {
+        string settingsFile = Application.dataPath + "/settings.txt";
+        if (!System.IO.File.Exists(settingsFile))
+        {
+            Debug.LogError("Settings file not found: " + settingsFile);
+            return;
+        }
+        string[] lines = System.IO.File.ReadAllLines(settingsFile);
+        for (int i = 0; i < lines.Length; i++)
+        {
+            if (lines[i] == "[Process name]")
+            {
+                ProcessName = lines[i + 1];
+            }
+            
+            if (lines[i] == "[Module name]")
+            {
+                ProcessModuleName = lines[i + 1];
+            }
+            
+            if (lines[i] == "[Offsets]")
+            {
+                string[] offsetStrings = lines[i + 1].Split(',');
+                for(int j = 0; j < offsetStrings.Length; j++)
+                {
+                    offsetStrings[j] = offsetStrings[j].Trim(' ');
+                    offsets.Add(Convert.ToInt32(offsetStrings[j], 16));
+                }
+            }
+            
+            if (lines[i] == "[Initial offset]")
+            {
+                InitialOffset = new IntPtr(Convert.ToInt32(lines[i + 1], 16));
+            }
+        }
         
+        
+        
+        Debug.Log(ProcessName + " - " + ProcessModuleName);
+        Debug.Log(InitialOffset.ToString("X"));
+        Debug.Log(FinalAddress.ToString("X"));
+        Debug.Log("Offsets: " + string.Join(", ", offsets.ConvertAll(o => o.ToString("X"))));
+    }
+
+    public void ConnectProcess()
+    {
+        process = Process.GetProcessesByName(ProcessName)[0];
+        if (process == null || process.HasExited)
+        {
+            Debug.LogError("Process not found: " + ProcessName);
+            return;
+        }
+        
+        int index = -1;
+        for (int i = 0; i < process.Modules.Count; i++)
+        {
+            Debug.Log(process.Modules[i].ModuleName + " - " + process.Modules[i].BaseAddress);
+            if( process.Modules[i].ModuleName.Equals(ProcessModuleName, StringComparison.OrdinalIgnoreCase)) 
+            {
+                index = i;
+                break;
+            }
+        }
+        if(index == -1)
+        {
+            Debug.LogError("module not found in process modules.");
+            return;
+        }
+        // 1. Get base address of client.dll
+        IntPtr baseAddress = process.Modules[index].BaseAddress;
+        if (baseAddress == IntPtr.Zero)
+            return;
+
+        // 2. Add first offset to get the base pointer
+        IntPtr address = IntPtr.Add(baseAddress, 0x009FA490);
+
+        // 3. Open process for reading
+        IntPtr processHandle = OpenProcess(PROCESS_WM_READ, false, process.Id);
+        byte[] buffer = new byte[4];
+        int bytesRead = 0;
+
+        // 4. Dereference pointer chain
+        for (int i = 0; i < offsets.Count; i++)
+        {
+            // Read pointer at current address
+            ReadProcessMemory((int)processHandle, address.ToInt32(), buffer, buffer.Length, ref bytesRead);
+            address = (IntPtr)BitConverter.ToInt32(buffer, 0);
+            if (address == IntPtr.Zero)
+                return; // Invalid pointer chain
+
+            // Add next offset, except after the last one
+            if (i < offsets.Count - 1)
+                address = IntPtr.Add(address, offsets[i]);
+        }
+        FinalAddress = address;
+        ProcessHandle = OpenProcess(PROCESS_WM_READ, false, process.Id);
+        processText.text = "Process connected: " + process.ProcessName;
+    }
+    
+    public void TogglePreview(bool value)
+    {
+        isPreview = value;
+        previewHandle.gameObject.SetActive(isPreview);
+    }
+
+    public void AssessState(bool sendAnyway)
+    {
+        currentStateIndex = SliderBody.Instance.GetCurrentIndex(isPreview ? previewHandle.StateValue : currentHP);
+
+
+        if (lastStateIndex != currentStateIndex || sendAnyway)
+        {
+            StartCoroutine(SendState(SliderBody.Instance.handles[currentStateIndex].StateName));
+        }
+        
+        lastStateIndex = currentStateIndex;
+        
+    }
+
+    public void GetProcessAndMemoryAddress()
+    {
+        for(int i = 0; i < Process.GetProcesses().Length; i++)
+        {
+            if (Process.GetProcesses()[i].ProcessName.Equals(ProcessName, StringComparison.OrdinalIgnoreCase))
+            {
+                process = Process.GetProcesses()[i];
+                Debug.Log("Process found: " + process.ProcessName);
+            }
+        }
+        
+        if(process == null)
+        {
+            Debug.LogError("Process not found: " + ProcessName);
+            return;
+        }
+        
+        IntPtr baseAddress = ModuleHelper.GetModuleBaseAddress(process.Id, ProcessModuleName);
+        if (baseAddress == IntPtr.Zero)
+        {
+            Debug.LogError("Module not found: " + ProcessModuleName);
+            return;
+        }
+        IntPtr address = IntPtr.Add(baseAddress, 0x009FA490);
+
+        // 3. Open process for reading
+        IntPtr processHandle = OpenProcess(PROCESS_WM_READ, false, process.Id);
+        byte[] buffer = new byte[4];
+        int bytesRead = 0;
+
+        // 4. Dereference pointer chain
+        int[] offsets = { 0x26C, 0x10, 0x70, 0x0, 0x128, 0x24, 0x3D8};
+        for (int i = 0; i < offsets.Length; i++)
+        {
+            // Read pointer at current address
+            ReadProcessMemory((int)processHandle, address.ToInt32(), buffer, buffer.Length, ref bytesRead);
+            address = (IntPtr)BitConverter.ToInt32(buffer, 0);
+            if (address == IntPtr.Zero)
+                return; // Invalid pointer chain
+
+            // Add next offset, except after the last one
+            if (i < offsets.Length - 1)
+                address = IntPtr.Add(address, offsets[i]);
+        }
     }
 
     // Example pointer chain: client.dll+0x6F070C, Offsets: 0x3C, 0x18, 0xCC, 0x1C4, 0xB8, 0x144, 0xB28
 
     void ReadHP()
     {
-        if (Process.GetProcessesByName("bms").Length == 0)
+
+        
+        if (this.process == null || this.process.HasExited)
             return;
 
-        Process process = Process.GetProcessesByName("bms")[0];
+        /*
         int index = -1;
         for (int i = 0; i < process.Modules.Count; i++)
         {
@@ -85,9 +273,12 @@ public class VaedoInstance : MonoBehaviour, IInstancesReceiver, IConnectionRecei
         }
 
         // 5. Read the HP value at the final address
-        ReadProcessMemory((int)processHandle, IntPtr.Add(address, offsets[^1]).ToInt32(), buffer, buffer.Length, ref bytesRead);
+        */
+        byte[] buffer = new byte[4];
+        int bytesRead = 0;
+        ReadProcessMemory((int)ProcessHandle,  IntPtr.Add(FinalAddress, offsets[^1]).ToInt32() , buffer, buffer.Length, ref bytesRead);
         int hp = BitConverter.ToInt32(buffer, 0);
-
+        currentHP = hp;
         HPText.text = hp.ToString();
         Debug.Log("HP: " + hp);
     }
@@ -115,30 +306,14 @@ public class VaedoInstance : MonoBehaviour, IInstancesReceiver, IConnectionRecei
     {
         if (Keyboard.current.aKey.wasPressedThisFrame)
         {
-            StartCoroutine(CheckClient());
-        }
-        
-        if (Keyboard.current.dKey.wasPressedThisFrame)
-        {
-            StartCoroutine(SendState("deer"));
-        }
-        
-        if (Keyboard.current.sKey.wasPressedThisFrame)
-        {
-            StartCoroutine(SendState("frog"));
-        }
-        
-        if (Keyboard.current.wKey.wasPressedThisFrame)
-        {
-            StartCoroutine(SendState("ew"));
-        }
-        
-        if (Keyboard.current.qKey.wasPressedThisFrame)
-        {
-            StartCoroutine(ClearStack());
+            //StartCoroutine(CheckClient());
         }
         
         ReadHP();
+        
+        AssessState(false);
+
+        
     }
 
     IEnumerator ClearStack()
@@ -211,7 +386,7 @@ public class VaedoInstance : MonoBehaviour, IInstancesReceiver, IConnectionRecei
 
     IEnumerator SendState(string state)
     {
-        MakeNewConnection();
+        //MakeNewConnection();
         Debug.Log("Checking client connection...");
         while (connection.GetClient() == null)
         {
@@ -234,6 +409,8 @@ public class VaedoInstance : MonoBehaviour, IInstancesReceiver, IConnectionRecei
         byte[] messageBytes = messageJson.AsUTF8();
         bool sent = connection.Send("nodes", messageBytes);
         Debug.Log($"Sent state: {state}, success: {sent}");
+
+        StartCoroutine(ClearStack());
     }
 
     public void OnStart(Instance instance)
@@ -264,6 +441,13 @@ public class VaedoInstance : MonoBehaviour, IInstancesReceiver, IConnectionRecei
         try
         {
             Debug.Log(Encoding.UTF8.GetString(data));
+            JToken json = JToken.Parse(Encoding.UTF8.GetString(data));
+            //if it's a message of type "instance" with a "name" field
+            if (channel == "instance" && json["name"] != null)
+            {
+                Debug.Log($"Instance name: {json["name"]}");
+                veadoText.text = "Connected! - " + json["name"].ToString();
+            }
         }
         catch
         {
